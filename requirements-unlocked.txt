@@ -11,6 +11,7 @@ google-auth-oauthlib
 numpy
 pandas
 plotly
+# uwsgi: (i) won't install on Windows, (ii) only for production
 uwsgi
 webassets
 werkzeug

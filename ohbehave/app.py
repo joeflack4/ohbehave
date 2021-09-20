@@ -86,3 +86,4 @@ app.layout = html.Div([
 def update_output_div(input_value):
     """Returning user input"""
     return '{}'.format(input_value)
+

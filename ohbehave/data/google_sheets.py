@@ -20,6 +20,7 @@ Sheet of interest:
 https://docs.google.com/spreadsheets/d/1dOFbfTFReRhJUxjj8TdLvsyOnBJ_WlPvpqXwj48WgVU/edit#gid=1971461617
 """
 import os.path
+from dateutil.parser import parse as parse_datetime_str
 from typing import List
 
 from googleapiclient.discovery import build
@@ -77,7 +78,36 @@ def get_sheets_data() -> pd.DataFrame:
 
     df: DataFrame = pd.DataFrame(values, columns=header).fillna('')
 
-    return df
+    df2 = df  # temp copy for comparing when debugging
+    # https://pandas.pydata.org/docs/reference/api/pandas.to_datetime.html
+    # - Non-infer can take ~0.5sec instead of ~0.001, but maybe better given the
+    # ...source data, but I'm not sure.
+    df2['Timestamp'] = pd.to_datetime(
+        df2['Timestamp'],
+        infer_datetime_format=True)
+
+    # TODO: create Retro.Timestamp col based on: parse(Retro:Date (split[0]) +
+    #  ' ' + Retro:Time)
+    # - 'Retro:Time[0]' is to remove AM/PM and leave behind the hh:MM:SS
+
+    # TypeError: unsupported operand type(s) for +: 'NoneType' and 'str'
+    # TODO: thus, need to fill in any missing values for Retro:Date.
+    # ...The way I've been entering data, I've been leaving Retro:Date empty,
+    # ...since it can be inferred and saves me time when doing data entry. Now,
+    # ...to successfuly infer, I will figure that if the given timestamp at the
+    # ...point of my entry is an evening hour <midnight, use the date in that
+    # ...timestamp. But otherwise, if morning or early afternoon <5pm(?), treat
+    # ...as the day before the timestamp (*unless* the retro time reported is
+    # ...also in the AM (i.e. before 9am)).
+    df2['Retro:Date'] = df2['Retro:Date'].apply(lambda x: x)
+
+    # TODO: This will work correctly after doing previous inference, which will
+    # ...fill any None values.
+    df2['Retro.Timestamp'] = pd.to_datetime(
+        df2.get('Retro:Date') + ' ' + \
+        df2.get('Retro:Time').apply(lambda x: x.split()[0])
+    )
+    return df2
 
 
 if __name__ == '__main__':
