@@ -63,7 +63,10 @@ tenacity==8.0.1
 toml==0.10.2
 uritemplate==3.0.1
 urllib3==1.26.6
-uWSGI==2.0.19.1
+# Deactivated reason: Requires some sort of binary intall on windows; I tried GCC but didn't work.
+# ...but not necessary to use for Windows dev environment. Manually install this in producation.
+# Activate env and run: `pip install uWSGI`. - joeflack4 2021/11/2
+# uWSGI==2.0.19.1
 virtualenv==20.8.0
 virtualenv-clone==0.5.7
 virtualenvwrapper==4.8.4

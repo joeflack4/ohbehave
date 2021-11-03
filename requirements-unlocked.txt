@@ -11,8 +11,10 @@ google-auth-oauthlib
 numpy
 pandas
 plotly
-# uwsgi: (i) won't install on Windows, (ii) only for production
-uwsgi
+# Deactivated reason: Requires some sort of binary intall on windows; I tried GCC but didn't work.
+# ...but not necessary to use for Windows dev environment. Manually install this in producation.
+# Activate env and run: `pip install uWSGI`. - joeflack4 2021/11/2
+# uwsgi
 webassets
 werkzeug
 flake8

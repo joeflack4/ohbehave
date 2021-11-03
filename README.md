@@ -39,3 +39,16 @@ Then, open 0.0.0.0:5050 in your browser.
 ### Inspired by
 
 [toddbirchard/plotlydash-flask-tutorial](https://github.com/toddbirchard/plotlydash-flask-tutorial).
+
+## Running
+The `uwsgi` depdency in `requirements.txt` and `requirements-unlocked.txt` is commented out.
+This is for convenient installation on Windows. Hard/impossible to work on Windows. Requires some sort
+of binary intall; I tried some GCC hacks but didn't work. It's not necessary to use for Windows dev environment.
+
+### Running: Windows
+Run: `python wsgi.py`
+
+### Running: Mac, Linux/Production
+So for Mac users or for production, manually: (i) activate virtual environment, and (ii)
+run: `pip install uWSGI`. Then, to run, \[TODO: I don't remember atm how to run on Mac;
+on Windows atm. Will have to finish this bit later. - joeflack4 2021/11/2]
