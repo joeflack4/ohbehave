@@ -24,13 +24,13 @@ from ohbehave.data.transforms.gaming_by_modality_timeseries import transform \
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 server = flask.Flask(__name__)  # define flask app.server
 app = dash.Dash(
-    __name__, external_stylesheets=external_stylesheets,
+    __name__,
+    external_stylesheets=external_stylesheets,
     server=server)  # call flask server
 
 
 # Real data
 my_data: DataFrame = get_sheets_data()
-# TODO: transform data into correct format:
 gaming_data: DataFrame = gaming_by_modality_timeseries(my_data)
 
 # Boilerplate example
@@ -74,8 +74,8 @@ app.layout = html.Div([
     # TODO: Get my data correct here:
     dash_table.DataTable(
         id='table',
-        columns=[{"name": i, "id": i} for i in my_data.columns],
-        data=my_data.to_dict('records'))
+        columns=[{"name": i, "id": i} for i in gaming_data.columns],
+        data=gaming_data.to_dict('records'))
 ])
 
 
