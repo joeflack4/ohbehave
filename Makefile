@@ -51,3 +51,7 @@ clean:
 	find . -name 'Pipefile.lock' -delete
 	rm -rf .pytest_cache
 	rm -rf htmlcov
+
+.PHONY: export-csv
+export-csv:
+	python scripts/export_csv.py

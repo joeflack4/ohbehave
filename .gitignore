@@ -140,3 +140,5 @@ archive.zip
 
 # My custom stuff
 *cache/
+/*.csv
+

@@ -1,5 +1,4 @@
-"""Transform data into a table showing gaming time spent by modality (friends
-vs solo), by date and weekday.
+"""Transform GoogleForms submissiond ata into a 1row=1day DataFrame
 """
 # from copy import copy
 from datetime import datetime, timedelta
@@ -10,7 +9,7 @@ from dateutil.parser import parse as parse_datetime_str
 from numpy import ndarray
 from pandas import DataFrame, Series
 
-from ohbehave.data.google_sheets import SRC_SHEET_FIELDS as FLD
+from ohbehave.data.google_sheets import SRC_SHEET_FIELDS as FLD, get_sheets_data
 
 ASSUMPTIONS = {
     'gamingEarliestDailyStart': '9:30:00',  # hh:MM:SS
@@ -37,7 +36,14 @@ def _weekday_from_date(val: str) -> str:
     return weekday
 
 
-def transform(df: DataFrame) -> DataFrame:
+def data_by_date() -> DataFrame:
+    """Get data by date, 1row=1date"""
+    df: DataFrame = get_sheets_data()
+    df2 = transform_by_date(df)
+    return df2
+
+
+def transform_by_date(df: DataFrame) -> DataFrame:
     """Transform into new DF where dates:rows ratio is 1:1"""
     # Setup
     column_names = [

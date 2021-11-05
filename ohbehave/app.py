@@ -16,9 +16,7 @@ import flask
 from dash.dependencies import Input, Output
 from pandas import DataFrame
 
-from ohbehave.data.google_sheets import get_sheets_data
-from ohbehave.data.transforms.gaming_by_modality_timeseries import transform \
-    as gaming_by_modality_timeseries
+from ohbehave.data.transforms.data_by_date import data_by_date
 
 # ---------------------- configuration of relative paths ----------------------
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -30,8 +28,7 @@ app = dash.Dash(
 
 
 # Real data
-my_data: DataFrame = get_sheets_data()
-gaming_data: DataFrame = gaming_by_modality_timeseries(my_data)
+data_by_date: DataFrame = data_by_date()
 
 # Boilerplate example
 # df = pd.read_csv(
@@ -74,8 +71,8 @@ app.layout = html.Div([
     # TODO: Get my data correct here:
     dash_table.DataTable(
         id='table',
-        columns=[{"name": i, "id": i} for i in gaming_data.columns],
-        data=gaming_data.to_dict('records'))
+        columns=[{"name": i, "id": i} for i in data_by_date.columns],
+        data=data_by_date.to_dict('records'))
 ])
 
 
