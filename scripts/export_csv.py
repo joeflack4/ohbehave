@@ -6,11 +6,17 @@ from pathlib import Path
 
 import pandas as pd
 
+
 ROOT_DIR = str(Path(Path(__file__).parent.absolute()).parent.absolute())
-sys.path.insert(0, ROOT_DIR)
-from ohbehave.data.transforms.data_by_date import data_by_date
+try:
+    from ohbehave.data.transforms.data_by_date import data_by_date
+except:
+    sys.path.insert(0, ROOT_DIR)
+    from ohbehave.data.transforms.data_by_date import data_by_date
 
 
+# TODO: if googlesheets token hasn't been refreshed recently enough, will give an error. i should handle exception and
+#  ...remind user to simply run again
 def export_csv(
     path=os.path.join(ROOT_DIR, 'data_by_date.csv'),
     modality='by_date'
@@ -26,3 +32,4 @@ def export_csv(
 
 if __name__ == '__main__':
     export_csv()
+    print('done')

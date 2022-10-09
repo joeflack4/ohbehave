@@ -1,15 +1,18 @@
 """Transform GoogleForms submissiond ata into a 1row=1day DataFrame
 """
+import os
 # from copy import copy
 from datetime import datetime, timedelta
+from dateutil.parser import parse as parse_datetime_str
+import pickle
 
 import pandas as pd
-from dateutil.parser import parse as parse_datetime_str
-
-from numpy import ndarray
+from numpy import datetime64, ndarray
 from pandas import DataFrame, Series
 
+from config import CACHE_DIR
 from ohbehave.data.google_sheets import SRC_SHEET_FIELDS as FLD, get_sheets_data
+
 
 ASSUMPTIONS = {
     'gamingEarliestDailyStart': '9:30:00',  # hh:MM:SS
@@ -36,11 +39,22 @@ def _weekday_from_date(val: str) -> str:
     return weekday
 
 
-def data_by_date() -> DataFrame:
+# TODO: not performant
+# TODO: datetime64 column dtype
+def data_by_date(use_cache=False, df_cache_path=os.path.join(CACHE_DIR, 'data_by_date.pickle')) -> DataFrame:
     """Get data by date, 1row=1date"""
-    df: DataFrame = get_sheets_data()
-    df2 = transform_by_date(df)
-    return df2
+    if use_cache:
+        file = open(df_cache_path, 'rb')
+        df = pickle.load(file)
+        file.close()
+    else:
+        df: DataFrame = get_sheets_data(cache_threshold_datetime=datetime.now() - timedelta(days=7))
+        df = transform_by_date(df)  # TODO: not performant
+        df['Date'] = df['Date'].astype(datetime64)
+        f = open(df_cache_path, 'wb')
+        pickle.dump(df, f)
+        f.close()
+    return df
 
 
 def transform_by_date(df: DataFrame) -> DataFrame:

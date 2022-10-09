@@ -39,7 +39,7 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 # The ID and range of a sample spreadsheet.
 # SAMPLE_SPREADSHEET_ID = '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'
 SAMPLE_SPREADSHEET_ID = '1dOFbfTFReRhJUxjj8TdLvsyOnBJ_WlPvpqXwj48WgVU'
-SAMPLE_RANGE_NAME = 'Form Responses 1!A1:H'
+SAMPLE_RANGE_NAME = 'Form Responses 1!A1:L'
 TOKEN_PATH = os.path.join(ENV_DIR, 'token.json')
 CREDS_PATH = os.path.join(ENV_DIR, 'credentials.json')
 SRC_SHEET_FIELDS = {
@@ -56,7 +56,7 @@ SRC_SHEET_FIELDS = {
     'timestamp_past': 'Retro.Timestamp'
 }
 fld = SRC_SHEET_FIELDS
-cache_file_path = os.path.join(CACHE_DIR, 'data.json')
+GSHEET_JSON_CACHE_PATH = os.path.join(CACHE_DIR, 'data.json')
 
 
 def _get_and_use_new_token():
@@ -99,7 +99,7 @@ def _get_sheets_live() -> Dict:
     return result
 
 
-def _get_sheets_cache(path=cache_file_path) -> Dict:
+def _get_sheets_cache(path=GSHEET_JSON_CACHE_PATH) -> Dict:
     """Get sheets from local cache"""
     try:
         with open(path) as f:
@@ -115,7 +115,7 @@ def get_sheets_data(
     """Shows basic usage of the Sheets API.
     Prints values from a sample spreadsheet.
     The default cache date is a week ago. So if the last reported data in the
-    cached file is les than 7 days ago, cache is used. Else, it loads live data
+    cached file is less than 7 days ago, cache is used. Else, it loads live data
     and overwrites cache.
     """
     result: Dict = {}
@@ -127,7 +127,7 @@ def get_sheets_data(
             result = cached
     if not result:
         result = _get_sheets_live()
-        with open(cache_file_path, 'w') as fp:
+        with open(GSHEET_JSON_CACHE_PATH, 'w') as fp:
             json.dump(result, fp)
 
     values: List[List[str]] = result.get('values', [])

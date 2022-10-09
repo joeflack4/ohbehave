@@ -31,9 +31,12 @@ run: env
 	$(shell . .venv/bin/activate && flask run)
 
 
+# TODO: bifurcate into production/local
+#  - prod?: gunicorn graph:app.server -b :8000
 .PHONY: deploy
 deploy:
-	$(shell . ./scripts/deploy.sh)
+	# $(shell . ./scripts/deploy.sh)
+	python3 ohbehave/app.py
 
 
 .PHONY: update
