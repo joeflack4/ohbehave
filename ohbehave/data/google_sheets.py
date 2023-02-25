@@ -19,6 +19,7 @@ https://docs.google.com/spreadsheets/d/1dOFbfTFReRhJUxjj8TdLvsyOnBJ_WlPvpqXwj48W
 
 import json
 import os
+import sys
 from typing import List, Dict
 from datetime import datetime, timedelta
 from dateutil.parser import parse as parse_datetime_str
@@ -31,7 +32,7 @@ from google.oauth2.credentials import Credentials
 import pandas as pd
 from pandas import DataFrame
 
-from ohbehave.config import ENV_DIR, CACHE_DIR
+from ohbehave.config import ENV_DIR, CACHE_DIR, ASSUMPTIONS
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
@@ -55,8 +56,10 @@ SRC_SHEET_FIELDS = {
     # Added here
     'timestamp_past': 'Retro.Timestamp'
 }
-fld = SRC_SHEET_FIELDS
+FLD = SRC_SHEET_FIELDS
 GSHEET_JSON_CACHE_PATH = os.path.join(CACHE_DIR, 'data.json')
+FUTURE_RETRO_THRESH_HRS = ASSUMPTIONS['maxHoursRetroWasUsedToActuallyReportFutureEvent']  # dk if im using
+LATEST_SLEEP_HR = ASSUMPTIONS['latestExpectedSleepHour']
 
 
 def _get_and_use_new_token():
@@ -109,8 +112,74 @@ def _get_sheets_cache(path=GSHEET_JSON_CACHE_PATH) -> Dict:
         return {}
 
 
-def get_sheets_data(
-    cache_threshold_datetime: datetime = datetime.now() - timedelta(days=7)
+def retro_date_fillna(row):
+    """Make retro timestmap
+    todo: for future dates/etc, would be better if I could use minutes too and not just hour calcs"""
+    retro_date = row['Retro: Date']
+    retro_time = row['Retro: Time']
+    reported_hr: int = row['Timestamp'].hour
+    if retro_date:
+        return retro_date
+    elif not retro_time:
+        return ''  # handles edge case where neither was filled out
+
+    retro_minus_reported_hrs: int = retro_time.hour - reported_hr
+    reported_betw_12am_and_latest_sleep: bool = reported_hr < LATEST_SLEEP_HR.hour
+    retro_betw_12am_and_latest_sleep: bool = retro_time.hour < LATEST_SLEEP_HR.hour
+
+    # Cases: Reporting 'retro' time in the future
+    # reported_in_future: 2nd 'or' clause: handles retro_time.hour >12am and reported_hr <12am,
+    # ...e.g. if FUTURE_RETRO_THRESH_HRS is 2, -22 hours would be considered a future event.
+    reported_in_future: bool = \
+        retro_minus_reported_hrs <= FUTURE_RETRO_THRESH_HRS or \
+        retro_minus_reported_hrs <= FUTURE_RETRO_THRESH_HRS - 24
+    if reported_in_future:
+        # Example case: Current time 11am, retro time 1am
+        # - not considered future event because not within `FUTURE_RETRO_THRESH_HRS`
+        # Example case: Current time 11pm, retro time 2am
+        # - not considered future event because not within `FUTURE_RETRO_THRESH_HRS`
+        # Example case: Current time 1am, retro time 1:30am
+        if reported_betw_12am_and_latest_sleep and retro_betw_12am_and_latest_sleep:
+            return row['Timestamp'].date()
+        # Example case: Current time 11pm, retro time 11:30pm
+        elif not reported_betw_12am_and_latest_sleep and not retro_betw_12am_and_latest_sleep:
+            return row['Timestamp'].date()
+        # Example case: Current time 11pm, retro time 1am
+        elif not reported_betw_12am_and_latest_sleep and retro_betw_12am_and_latest_sleep:
+            return row['Timestamp'].date() + timedelta(days=1)
+        else:
+            print("Failed to anticipate case for imputing retro date. Row: ", dict(row), file=sys.stderr)
+            return ''
+
+    # Cases: Retro time in past as expected
+    # Example case: Current time 11pm, retro time 10:30pm
+    if not reported_betw_12am_and_latest_sleep and not retro_betw_12am_and_latest_sleep:
+        return row['Timestamp'].date()
+    # Example case: Current time 3am, retro time 2am
+    # Example case: Current time 1am, retro time 5am
+    # todo: 2nd case: fuzzy as to whether or not I would have reported thisa future or past, even though it doesn't
+    #  meet FUTURE_RETRO_THRESH_HRS. If I want to inteperet this as past, I would need more logic to catch the case
+    #  and chagne return to: return row['Timestamp'].date() - timedelta(days=1)
+    #  For now, this case will be handled as in the above clause; considered the same day; a future event.
+    elif reported_betw_12am_and_latest_sleep and retro_betw_12am_and_latest_sleep:
+        return row['Timestamp'].date()
+    # Example case: Current time 3am, retro time 10:30pm
+    # Example case: Current time 3am, retro time 11am
+    elif reported_betw_12am_and_latest_sleep and not retro_betw_12am_and_latest_sleep:
+        return row['Timestamp'].date() - timedelta(days=1)
+    # Example case: Current time 11pm, retro time 5am
+    # todo: fuzzy as to whether or not I would have reported this as a future event or past, even though it doesn't
+    #  meet FUTURE_RETRO_THRESH_HRS. If I want to inteperet this as future, I would change to:
+    #  return row['Timestamp'].date() + timedelta(days=1)
+    elif not reported_betw_12am_and_latest_sleep and retro_betw_12am_and_latest_sleep:
+        return row['Timestamp'].date()
+    else:
+        print("Failed to anticipate case for imputing retro date. Row: ", dict(row), file=sys.stderr)
+        return ''
+
+
+def get_sheets_data_raw(
+    cache_threshold_datetime: datetime = datetime.now() - timedelta(days=7), ignore_gsheets_cache=False
 ) -> pd.DataFrame:
     """Shows basic usage of the Sheets API.
     Prints values from a sample spreadsheet.
@@ -118,11 +187,11 @@ def get_sheets_data(
     cached file is less than 7 days ago, cache is used. Else, it loads live data
     and overwrites cache.
     """
+    # Get data
     result: Dict = {}
-    if cache_threshold_datetime:
+    if cache_threshold_datetime and not ignore_gsheets_cache:
         cached: Dict = _get_sheets_cache()
-        last_timestamp = parse_datetime_str(
-            cached['values'][-1][0]) if cached else None
+        last_timestamp = parse_datetime_str(cached['values'][-1][0]) if cached else None
         if last_timestamp and last_timestamp > cache_threshold_datetime:
             result = cached
     if not result:
@@ -130,43 +199,37 @@ def get_sheets_data(
         with open(GSHEET_JSON_CACHE_PATH, 'w') as fp:
             json.dump(result, fp)
 
+    # Vars
     values: List[List[str]] = result.get('values', [])
     header = values[0]
     values = values[1:]
-
     df: DataFrame = pd.DataFrame(values, columns=header).fillna('')
 
-    df2 = df  # temp copy for comparing when debugging
-    # https://pandas.pydata.org/docs/reference/api/pandas.to_datetime.html
-    # - Non-infer can take ~0.5sec instead of ~0.001, but maybe better given the
-    # ...source data, but I'm not sure.
-    df2['Timestamp'] = pd.to_datetime(
-        df2['Timestamp'],
-        infer_datetime_format=True)
+    # Convert strings to datetime/date/time objects
+    df['Timestamp'] = pd.to_datetime(df['Timestamp'], infer_datetime_format=True)
+    df['Retro: Date'] = df['Retro: Date'].apply(lambda x: parse_datetime_str(x).date() if x else '')
+    df['Retro: Time'] = df['Retro: Time'].apply(lambda x: parse_datetime_str(x).time() if x else '')
 
-    # TODO: create Retro.Timestamp col based on: parse(Retro:Date (split[0]) +
-    #  ' ' + Retro:Time)
-    # - 'Retro:Time[0]' is to remove AM/PM and leave behind the hh:MM:SS
+    return df
 
-    # TypeError: unsupported operand type(s) for +: 'NoneType' and 'str'
-    # TODO: thus, need to fill in any missing values for Retro:Date.
-    # ...The way I've been entering data, I've been leaving Retro:Date empty,
-    # ...since it can be inferred and saves me time when doing data entry. Now,
-    # ...to successfuly infer, I will figure that if the given timestamp at the
-    # ...point of my entry is an evening hour <midnight, use the date in that
-    # ...timestamp. But otherwise, if morning or early afternoon <5pm(?), treat
-    # ...as the day before the timestamp (*unless* the retro time reported is
-    # ...also in the AM (i.e. before 9am)).
-    df2[fld['timestamp_past_date']] = df2[fld['timestamp_past_date']].apply(lambda x: x)
 
-    # TODO: This will work correctly after doing previous inference, which will
-    # ...fill any None values.
-    datetimes_past = df2.get(fld['timestamp_past_date']) + ' ' + \
-        df2.get(fld['timestamp_past_time']).apply(
-            lambda x: x.split()[0] if x else None).fillna('')
-    # If '', produces "NaTType" NaT
-    df2['Retro.Timestamp'] = pd.to_datetime(datetimes_past, errors='coerce')
-    return df2
+def gsheets_datetime_imputations(df: pd.DataFrame) -> pd.DataFrame:
+    """Imputes a lot of datetime data"""
+    # Retro.Timestamp
+    df['Retro: Date'] = df.apply(retro_date_fillna, axis=1)
+    df['Retro.Timestamp'] = df.apply(
+        lambda x: parse_datetime_str(str(x['Retro: Date']) + ' ' + str(x['Retro: Time']))
+        if x['Retro: Date'] and x['Retro: Time'] else '', axis=1)
+    return df
+
+
+def get_sheets_data(
+    cache_threshold_datetime: datetime = datetime.now() - timedelta(days=7), ignore_gsheets_cache=False
+):
+    """Gets raw data and does some datetime imputation"""
+    df = get_sheets_data_raw(cache_threshold_datetime, ignore_gsheets_cache)
+    df = gsheets_datetime_imputations(df)
+    return df
 
 
 if __name__ == '__main__':
