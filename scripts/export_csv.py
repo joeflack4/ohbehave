@@ -21,8 +21,8 @@ except Exception:
 # TODO: if googlesheets token hasn't been refreshed recently enough, will give an error. i should handle exception and
 #  ...remind user to simply run again
 def export_csv(
-    outdir=ROOT_DIR, modality='by_date', exclude_gaming_data=False,
-    exclude_alcohol_data=False, exclude_sleep_data=False, ignore_gsheets_cache=False
+    outdir=ROOT_DIR, modality='by_date', exclude_gaming_data=False, exclude_alcohol_data=False,
+    exclude_sleep_data=False, ignore_gsheets_cache=False, verbose=False
 ):
     """Export csv: main function"""
     name_stub = ('' + ' sans_gaming' * exclude_gaming_data + ' sans_alcohol' * exclude_alcohol_data + ' sans_sleep' *
@@ -31,7 +31,7 @@ def export_csv(
     if modality == 'by_date':
         data_outpath = os.path.join(outdir, 'data' + name_stub + '.csv')
         df: pd.DataFrame = data_by_date(
-            exclude_gaming_data, exclude_alcohol_data, exclude_sleep_data, ignore_gsheets_cache)
+            exclude_gaming_data, exclude_alcohol_data, exclude_sleep_data, ignore_gsheets_cache, verbose)
         df.to_csv(data_outpath, index=False)
         if not exclude_sleep_data:
             sleep_summary_stats_df: pd.DataFrame = sleep_summary_stats(df)
@@ -55,6 +55,8 @@ def cli():
         '-i', '--ignore-gsheets-cache', required=False, action='store_true',
         help='Ignore default caching mechanism of download of raw data from GoogleSheets. Will always download if '
              'this flag is present.')
+    parser.add_argument(
+        '-v', '--verbose', required=False, action='store_true', help='Print extra info and warning statements?')
     d: Dict = vars(parser.parse_args())
     export_csv(**d)
 
